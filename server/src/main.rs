@@ -1,4 +1,4 @@
-use axum::{response::IntoResponse, routing::get, Extension, Json, Router};
+use axum::{response::IntoResponse, routing::{get, post}, Extension, Json, Router};
 use serde::{Deserialize, Serialize};
 use shuttle_openai::async_openai::config::OpenAIConfig;
 use shuttle_openai::async_openai::types::CreateCompletionRequestArgs;
@@ -9,9 +9,12 @@ async fn hello_world() -> &'static str {
 }
 
 #[shuttle_runtime::main]
-async fn main(#[shuttle_openai::OpenAI] cfg: Client<OpenAIConfig>) -> shuttle_axum::ShuttleAxum {
+async fn main(#[shuttle_openai::OpenAI(
+    api_key="{secrets.OPENAI_API_KEY}"
+)] cfg: Client<OpenAIConfig>) -> shuttle_axum::ShuttleAxum {
     let router = Router::new()
         .route("/", get(hello_world))
+        .route("/prompt", post(prompt))
         .layer(Extension(cfg));
 
     Ok(router.into())
@@ -28,7 +31,7 @@ async fn prompt(
 ) -> Result<impl IntoResponse, impl IntoResponse> {
     let request = match CreateCompletionRequestArgs::default()
         .model("gpt-4o")
-        .prompt("Tell me a joke about the universe")
+        .prompt(prompt.inner)
         .max_tokens(40_u32)
         .build()
     {
